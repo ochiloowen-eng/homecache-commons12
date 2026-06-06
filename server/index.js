@@ -1609,6 +1609,148 @@ app.get("/api/tree", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/api/tree/nodes", requireAuth, requireRole("parent", "member"), async (req, res) => {
+  try {
+    const householdId = req.auth.membership.householdId;
+    const label = String(req.body.label || "").trim();
+    const subLabel = String(req.body.sub || req.body.subLabel || "").trim();
+    const x = Number(req.body.x);
+    const y = Number(req.body.y);
+    const color = String(req.body.color || "#6A8CAF").trim();
+
+    if (!label) {
+      res.status(400).json({ error: "Name is required" });
+      return;
+    }
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      res.status(400).json({ error: "Valid x and y positions are required" });
+      return;
+    }
+
+    const nodeId = `node-${householdId}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    await run(
+      `INSERT INTO tree_nodes (householdId, nodeId, x, y, label, subLabel, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [householdId, nodeId, Math.round(x), Math.round(y), label, subLabel || "Family member", color]
+    );
+
+    await createNotification(householdId, `Family tree person added: ${label}`, "Just now");
+    res.status(201).json({ id: nodeId, x: Math.round(x), y: Math.round(y), label, sub: subLabel || "Family member", color });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent", "member"), async (req, res) => {
+  try {
+    const householdId = req.auth.membership.householdId;
+    const nodeId = String(req.params.nodeId || "").trim();
+    const existing = await get("SELECT * FROM tree_nodes WHERE householdId = ? AND nodeId = ?", [householdId, nodeId]);
+    if (!existing) {
+      res.status(404).json({ error: "Tree person not found" });
+      return;
+    }
+
+    const label = typeof req.body.label === "string" && req.body.label.trim() ? req.body.label.trim() : existing.label;
+    const subLabel = typeof req.body.sub === "string" ? req.body.sub.trim() : (typeof req.body.subLabel === "string" ? req.body.subLabel.trim() : existing.subLabel);
+    const nextX = req.body.x !== undefined ? Number(req.body.x) : existing.x;
+    const nextY = req.body.y !== undefined ? Number(req.body.y) : existing.y;
+    const color = typeof req.body.color === "string" && req.body.color.trim() ? req.body.color.trim() : existing.color;
+
+    if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) {
+      res.status(400).json({ error: "Valid x and y positions are required" });
+      return;
+    }
+
+    await run(
+      `UPDATE tree_nodes
+       SET x = ?, y = ?, label = ?, subLabel = ?, color = ?
+       WHERE householdId = ? AND nodeId = ?`,
+      [Math.round(nextX), Math.round(nextY), label, subLabel, color, householdId, nodeId]
+    );
+
+    const updated = await get("SELECT nodeId as id, x, y, label, subLabel as sub, color FROM tree_nodes WHERE householdId = ? AND nodeId = ?", [householdId, nodeId]);
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent", "member"), async (req, res) => {
+  try {
+    const householdId = req.auth.membership.householdId;
+    const nodeId = String(req.params.nodeId || "").trim();
+    const existing = await get("SELECT label FROM tree_nodes WHERE householdId = ? AND nodeId = ?", [householdId, nodeId]);
+    if (!existing) {
+      res.status(404).json({ error: "Tree person not found" });
+      return;
+    }
+
+    await run("DELETE FROM tree_edges WHERE householdId = ? AND (sourceNode = ? OR targetNode = ?)", [householdId, nodeId, nodeId]);
+    await run("DELETE FROM tree_nodes WHERE householdId = ? AND nodeId = ?", [householdId, nodeId]);
+    await createNotification(householdId, `Family tree person removed: ${existing.label}`, "Just now");
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/tree/edges", requireAuth, requireRole("parent", "member"), async (req, res) => {
+  try {
+    const householdId = req.auth.membership.householdId;
+    const sourceNode = String(req.body.sourceNode || "").trim();
+    const targetNode = String(req.body.targetNode || "").trim();
+
+    if (!sourceNode || !targetNode || sourceNode === targetNode) {
+      res.status(400).json({ error: "Choose two different people to connect" });
+      return;
+    }
+
+    const nodes = await all(
+      "SELECT nodeId FROM tree_nodes WHERE householdId = ? AND nodeId IN (?, ?)",
+      [householdId, sourceNode, targetNode]
+    );
+    if (nodes.length !== 2) {
+      res.status(404).json({ error: "Both tree people must exist" });
+      return;
+    }
+
+    const duplicate = await get(
+      `SELECT id FROM tree_edges
+       WHERE householdId = ?
+       AND ((sourceNode = ? AND targetNode = ?) OR (sourceNode = ? AND targetNode = ?))`,
+      [householdId, sourceNode, targetNode, targetNode, sourceNode]
+    );
+    if (duplicate) {
+      res.status(409).json({ error: "Relationship already exists" });
+      return;
+    }
+
+    await run("INSERT INTO tree_edges (householdId, sourceNode, targetNode) VALUES (?, ?, ?)", [householdId, sourceNode, targetNode]);
+    res.status(201).json({ edge: [sourceNode, targetNode] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/tree/edges/:sourceNode/:targetNode", requireAuth, requireRole("parent", "member"), async (req, res) => {
+  try {
+    const householdId = req.auth.membership.householdId;
+    const sourceNode = String(req.params.sourceNode || "").trim();
+    const targetNode = String(req.params.targetNode || "").trim();
+
+    await run(
+      `DELETE FROM tree_edges
+       WHERE householdId = ?
+       AND ((sourceNode = ? AND targetNode = ?) OR (sourceNode = ? AND targetNode = ?))`,
+      [householdId, sourceNode, targetNode, targetNode, sourceNode]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/settings", requireAuth, async (req, res) => {
   try {
     const rows = await all("SELECT * FROM settings WHERE householdId = ? ORDER BY section, id", [req.auth.membership.householdId]);

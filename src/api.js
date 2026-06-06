@@ -175,6 +175,29 @@ export const api = {
   },
   getMembers: () => request("/api/members"),
   getTree: () => request("/api/tree"),
+  addTreeNode: (payload) =>
+    request("/api/tree/nodes", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateTreeNode: (nodeId, payload) =>
+    request(`/api/tree/nodes/${encodeURIComponent(nodeId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteTreeNode: (nodeId) =>
+    request(`/api/tree/nodes/${encodeURIComponent(nodeId)}`, {
+      method: "DELETE",
+    }),
+  addTreeEdge: (payload) =>
+    request("/api/tree/edges", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteTreeEdge: (sourceNode, targetNode) =>
+    request(`/api/tree/edges/${encodeURIComponent(sourceNode)}/${encodeURIComponent(targetNode)}`, {
+      method: "DELETE",
+    }),
   getSettings: () => request("/api/settings"),
   updateSetting: (id, enabled) =>
     request(`/api/settings/${id}`, {

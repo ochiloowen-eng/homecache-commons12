@@ -588,15 +588,139 @@ export function MemberProfilePage({ member, onBack }) {
   );
 }
 
-export function FamilyTreePage({ nodes, edges }) {
+export function FamilyTreePage({
+  nodes,
+  edges,
+  onCreateNode,
+  onUpdateNode,
+  onDeleteNode,
+  onCreateEdge,
+  onDeleteEdge,
+  canManage = true,
+}) {
   const W = 680;
   const H = 380;
-  const nmap = Object.fromEntries(nodes.map((n) => [n.id, n]));
+  const nmap = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+  const [selectedId, setSelectedId] = useState(nodes[0]?.id || '');
+  const [personForm, setPersonForm] = useState({
+    label: '',
+    sub: '',
+    color: '#6A8CAF',
+    x: 340,
+    y: 190,
+  });
+  const [sourceNode, setSourceNode] = useState('');
+  const [targetNode, setTargetNode] = useState('');
+  const [saving, setSaving] = useState(false);
+  const selectedNode = nmap[selectedId] || null;
+
+  useEffect(() => {
+    if (!selectedId && nodes[0]?.id) {
+      setSelectedId(nodes[0].id);
+    }
+  }, [nodes, selectedId]);
+
+  useEffect(() => {
+    if (!selectedNode) {
+      return;
+    }
+    setPersonForm({
+      label: selectedNode.label || '',
+      sub: selectedNode.sub || '',
+      color: selectedNode.color || '#6A8CAF',
+      x: selectedNode.x || 340,
+      y: selectedNode.y || 190,
+    });
+  }, [selectedNode]);
+
+  useEffect(() => {
+    if (!sourceNode && nodes[0]?.id) {
+      setSourceNode(nodes[0].id);
+    }
+    if (!targetNode && nodes[1]?.id) {
+      setTargetNode(nodes[1].id);
+    }
+  }, [nodes, sourceNode, targetNode]);
+
+  const resetForNewPerson = () => {
+    setSelectedId('');
+    setPersonForm({
+      label: '',
+      sub: 'Family member',
+      color: '#6A8CAF',
+      x: Math.min(620, 120 + nodes.length * 55),
+      y: Math.min(330, 90 + (nodes.length % 4) * 65),
+    });
+  };
+
+  const savePerson = async () => {
+    if (!personForm.label.trim()) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        ...personForm,
+        label: personForm.label.trim(),
+        sub: personForm.sub.trim() || 'Family member',
+        x: Number(personForm.x),
+        y: Number(personForm.y),
+      };
+      if (selectedNode) {
+        await onUpdateNode(selectedNode.id, payload);
+      } else {
+        await onCreateNode(payload);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removePerson = async () => {
+    if (!selectedNode || !window.confirm(`Remove ${selectedNode.label} from the family tree? Relationships will also be removed.`)) {
+      return;
+    }
+    setSaving(true);
+    try {
+      await onDeleteNode(selectedNode.id);
+      setSelectedId('');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const connectPeople = async () => {
+    if (!sourceNode || !targetNode || sourceNode === targetNode) {
+      return;
+    }
+    setSaving(true);
+    try {
+      await onCreateEdge({ sourceNode, targetNode });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initialsFor = (label) => String(label || 'Family Member')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('') || 'FM';
 
   return (
     <div>
-      <div className="hc-page-title">Family Tree</div>
-      <div className="hc-page-sub">A living genealogical map of your family.</div>
+      <div className="hc-section-head">
+        <div>
+          <div className="hc-page-title">Family Tree</div>
+          <div className="hc-page-sub">A living genealogical map of your family.</div>
+        </div>
+        {canManage ? (
+          <button className="hc-btn hc-btn-primary" onClick={resetForNewPerson}>
+            + Add Person
+          </button>
+        ) : null}
+      </div>
       <div className="hc-tree-container">
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="hc-tree-svg">
           {edges.map(([a, b]) => {
@@ -608,17 +732,92 @@ export function FamilyTreePage({ nodes, edges }) {
             return <line key={`${a}-${b}`} x1={na.x} y1={na.y + 20} x2={nb.x} y2={nb.y - 20} stroke={theme.fog} strokeWidth={1.5} />;
           })}
           {nodes.map((n) => (
-            <g key={n.id} className="hc-tree-node" transform={`translate(${n.x},${n.y})`}>
+            <g key={n.id} className="hc-tree-node" transform={`translate(${n.x},${n.y})`} onClick={() => setSelectedId(n.id)}>
+              <circle r={26} fill={selectedId === n.id ? theme.amber : n.color} opacity={selectedId === n.id ? 0.95 : 1} />
               <circle r={22} fill={n.color} />
               <text textAnchor="middle" dy={40} style={{ fontSize: 12, fontFamily: 'Lora,serif', fill: theme.ink, fontWeight: 500 }}>{n.label}</text>
               <text textAnchor="middle" dy={54} style={{ fontSize: 9, fontFamily: 'JetBrains Mono,monospace', fill: theme.fogDark }}>{n.sub}</text>
               <text textAnchor="middle" dy={6} style={{ fontSize: 12, fill: 'white', fontFamily: 'Playfair Display,serif', fontWeight: 700 }}>
-                {n.label.split(' ')[0][0]}{n.label.split(' ')[1]?.[0] || ''}
+                {initialsFor(n.label)}
               </text>
             </g>
           ))}
         </svg>
       </div>
+
+      {canManage ? (
+        <div className="hc-grid-2" style={{ marginTop: 18 }}>
+          <div className="hc-card">
+            <div className="hc-card-title">{selectedNode ? 'Edit Person' : 'Add Person'}</div>
+            <div className="hc-card-sub">Select a circle in the tree or add a new family member.</div>
+            <div className="hc-form-group">
+              <label className="hc-label">Name</label>
+              <input className="hc-input" value={personForm.label} onChange={(e) => setPersonForm((prev) => ({ ...prev, label: e.target.value }))} />
+            </div>
+            <div className="hc-form-group">
+              <label className="hc-label">Relationship Label</label>
+              <input className="hc-input" value={personForm.sub} onChange={(e) => setPersonForm((prev) => ({ ...prev, sub: e.target.value }))} placeholder="e.g. Grandmother, Cousin, Child" />
+            </div>
+            <div className="hc-grid-2" style={{ gap: 10, marginBottom: 0 }}>
+              <div className="hc-form-group">
+                <label className="hc-label">X Position</label>
+                <input className="hc-input" type="number" min="40" max="640" value={personForm.x} onChange={(e) => setPersonForm((prev) => ({ ...prev, x: e.target.value }))} />
+              </div>
+              <div className="hc-form-group">
+                <label className="hc-label">Y Position</label>
+                <input className="hc-input" type="number" min="40" max="340" value={personForm.y} onChange={(e) => setPersonForm((prev) => ({ ...prev, y: e.target.value }))} />
+              </div>
+            </div>
+            <div className="hc-form-group">
+              <label className="hc-label">Color</label>
+              <input className="hc-input" type="color" value={personForm.color} onChange={(e) => setPersonForm((prev) => ({ ...prev, color: e.target.value }))} style={{ height: 44, padding: 6 }} />
+            </div>
+            <div className="hc-modal-actions">
+              {selectedNode ? <button className="hc-btn hc-btn-ghost" onClick={removePerson} disabled={saving}>Remove</button> : null}
+              <button className="hc-btn hc-btn-ghost" onClick={resetForNewPerson}>New</button>
+              <button className="hc-btn hc-btn-primary" onClick={savePerson} disabled={saving || !personForm.label.trim()}>
+                {saving ? 'Saving...' : 'Save Person'}
+              </button>
+            </div>
+          </div>
+
+          <div className="hc-card">
+            <div className="hc-card-title">Relationships</div>
+            <div className="hc-card-sub">Connect two people to draw a family-tree line.</div>
+            <div className="hc-grid-2" style={{ gap: 10, marginBottom: 0 }}>
+              <div className="hc-form-group">
+                <label className="hc-label">From</label>
+                <select className="hc-input" value={sourceNode} onChange={(e) => setSourceNode(e.target.value)}>
+                  {nodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
+                </select>
+              </div>
+              <div className="hc-form-group">
+                <label className="hc-label">To</label>
+                <select className="hc-input" value={targetNode} onChange={(e) => setTargetNode(e.target.value)}>
+                  {nodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <button className="hc-btn hc-btn-primary" onClick={connectPeople} disabled={saving || nodes.length < 2 || sourceNode === targetNode}>
+              Connect People
+            </button>
+            <div className="hc-divider" />
+            {!edges.length ? <div className="hc-card-sub">No relationships yet.</div> : null}
+            {edges.map(([source, target]) => {
+              const sourceLabel = nmap[source]?.label || source;
+              const targetLabel = nmap[target]?.label || target;
+              return (
+                <div key={`${source}-${target}`} className="hc-notif-chip">
+                  <div className="hc-notif-text">{sourceLabel} - {targetLabel}</div>
+                  <button className="hc-btn hc-btn-ghost hc-btn-sm" onClick={() => onDeleteEdge(source, target)} disabled={saving}>
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react';
 import theme from '../theme';
 
+const ROLE_LABELS = {
+  owner: 'Owner',
+  parent: 'Admin',
+  member: 'Contributor',
+  guest: 'Viewer',
+};
+
+const ROLE_DESCRIPTIONS = {
+  parent: 'Can help manage household content and invitations.',
+  member: 'Can add and edit family memories, vaults, and tree details.',
+  guest: 'Can browse the household with limited editing access.',
+};
+
+function roleLabel(role) {
+  return ROLE_LABELS[role] || role || 'Member';
+}
+
 export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetRecovery, loading, error }) {
   const [mode, setMode] = useState('login');
   const [displayName, setDisplayName] = useState('');
@@ -15,7 +32,7 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
     const code = new URLSearchParams(window.location.search).get('inviteCode');
     if (code) {
       setInviteCode(code);
-      setMode('register');
+      setMode('join');
       setInfo('Invite code detected. Complete registration to join the household.');
     }
   }, []);
@@ -27,8 +44,16 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
         await onLogin({ identifier, password });
         return;
       }
+      if (mode === 'join') {
+        if (!String(inviteCode || '').trim()) {
+          setInfo('Enter an invite code or open the invite link from the household owner.');
+          return;
+        }
+        await onRegister({ displayName, identifier, password, inviteCode });
+        return;
+      }
       if (mode === 'register') {
-        await onRegister({ displayName, identifier, password, householdName, inviteCode });
+        await onRegister({ displayName, identifier, password, householdName, inviteCode: '' });
         return;
       }
       if (mode === 'recover') {
@@ -52,45 +77,57 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
     <div style={{ minHeight: '100vh', background: theme.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div className="hc-card" style={{ width: '100%', maxWidth: 460 }}>
         <div className="hc-page-title" style={{ fontSize: 28 }}>Homecache Accounts</div>
-        <div className="hc-page-sub">Email/phone login, household roles, invites, and recovery.</div>
+        <div className="hc-page-sub">Sign in, join a household, or start a new family archive.</div>
         <div className="hc-chips" style={{ marginBottom: 12 }}>
-          {['login', 'register', 'recover', 'reset'].map((m) => (
-            <div key={m} className={`hc-chip${mode === m ? ' active' : ''}`} onClick={() => setMode(m)}>{m}</div>
-          ))}
+          <div className={`hc-chip${mode === 'login' ? ' active' : ''}`} onClick={() => setMode('login')}>sign in</div>
+          <div className={`hc-chip${mode === 'join' ? ' active' : ''}`} onClick={() => setMode('join')}>join household</div>
+          <div className={`hc-chip${mode === 'register' ? ' active' : ''}`} onClick={() => setMode('register')}>create household</div>
+          <div className={`hc-chip${mode === 'recover' ? ' active' : ''}`} onClick={() => setMode('recover')}>recover</div>
+          <div className={`hc-chip${mode === 'reset' ? ' active' : ''}`} onClick={() => setMode('reset')}>reset</div>
         </div>
 
-        {(mode === 'register') && (
+        {mode === 'join' ? (
+          <div className="hc-card" style={{ marginBottom: 14, background: theme.parchment }}>
+            <div className="hc-card-title">Joining as a member?</div>
+            <div className="hc-card-sub" style={{ marginBottom: 0 }}>
+              Use the invite code or invite link from the household owner. Your account will join their household instead of creating a new one.
+            </div>
+          </div>
+        ) : null}
+
+        {(mode === 'register' || mode === 'join') && (
           <div className="hc-form-group">
             <label className="hc-label">Name</label>
             <input className="hc-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
         )}
 
-        {(mode === 'login' || mode === 'register' || mode === 'recover') && (
+        {(mode === 'login' || mode === 'register' || mode === 'join' || mode === 'recover') && (
           <div className="hc-form-group">
             <label className="hc-label">Email or Phone</label>
             <input className="hc-input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </div>
         )}
 
-        {(mode === 'login' || mode === 'register') && (
+        {(mode === 'login' || mode === 'register' || mode === 'join') && (
           <div className="hc-form-group">
             <label className="hc-label">Password</label>
             <input type="password" className="hc-input" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         )}
 
+        {mode === 'join' && (
+          <div className="hc-form-group">
+            <label className="hc-label">Invite Code</label>
+            <input className="hc-input" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="e.g. HC-ABC123..." />
+          </div>
+        )}
+
         {mode === 'register' && (
-          <>
-            <div className="hc-form-group">
-              <label className="hc-label">Invite Code (optional)</label>
-              <input className="hc-input" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
-            </div>
-            <div className="hc-form-group">
-              <label className="hc-label">Household Name (if no invite)</label>
-              <input className="hc-input" value={householdName} onChange={(e) => setHouseholdName(e.target.value)} />
-            </div>
-          </>
+          <div className="hc-form-group">
+            <label className="hc-label">Household Name</label>
+            <input className="hc-input" value={householdName} onChange={(e) => setHouseholdName(e.target.value)} placeholder="e.g. The Wanjiku Family" />
+          </div>
         )}
 
         {mode === 'reset' && (
@@ -110,7 +147,9 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
         {info ? <div className="hc-card-sub" style={{ color: theme.moss }}>{info}</div> : null}
 
         <div className="hc-modal-actions">
-          <button className="hc-btn hc-btn-primary" onClick={submit} disabled={loading}>{loading ? 'Please wait...' : 'Continue'}</button>
+          <button className="hc-btn hc-btn-primary" onClick={submit} disabled={loading}>
+            {loading ? 'Please wait...' : mode === 'join' ? 'Join Household' : mode === 'register' ? 'Create Household' : 'Continue'}
+          </button>
         </div>
       </div>
     </div>
@@ -127,15 +166,18 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
   const [role, setRole] = useState('member');
   const [invitedContact, setInvitedContact] = useState('');
   const [expiresInDays, setExpiresInDays] = useState(7);
+  const [copiedCode, setCopiedCode] = useState('');
 
   const canManage = user?.role === 'owner' || user?.role === 'parent';
   const copyInviteLink = async (code) => {
     const url = `${window.location.origin}/?inviteCode=${encodeURIComponent(code)}`;
     if (navigator?.clipboard?.writeText) {
       await navigator.clipboard.writeText(url);
+      setCopiedCode(code);
       return;
     }
     window.prompt('Copy invite link:', url);
+    setCopiedCode(code);
   };
 
   return (
@@ -144,7 +186,14 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
         <div className="hc-card-title">Household Accounts</div>
         <button className="hc-btn hc-btn-ghost hc-btn-sm" onClick={onRefresh}>Refresh</button>
       </div>
-      <div className="hc-card-sub">{householdName || user?.householdName} · role: {user?.role}</div>
+      <div className="hc-card-sub">{householdName || user?.householdName} - your role: {roleLabel(user?.role)}</div>
+
+      <div className="hc-card" style={{ marginBottom: 14, background: theme.parchment }}>
+        <div className="hc-card-title">Member Access</div>
+        <div className="hc-card-sub" style={{ marginBottom: 0 }}>
+          Members can either sign in with an account you create below, or use an invite link and choose "join household" on the welcome screen.
+        </div>
+      </div>
 
       {user?.role === 'owner' ? (
         <div style={{ marginTop: 10, marginBottom: 10 }}>
@@ -185,9 +234,9 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
             <label className="hc-label">Member Role</label>
             <select className="hc-input" value={memberRole} onChange={(e) => setMemberRole(e.target.value)}>
-              <option value="parent">Parent</option>
-              <option value="member">Member</option>
-              <option value="guest">Guest</option>
+              <option value="parent">{roleLabel('parent')} - {ROLE_DESCRIPTIONS.parent}</option>
+              <option value="member">{roleLabel('member')} - {ROLE_DESCRIPTIONS.member}</option>
+              <option value="guest">{roleLabel('guest')} - {ROLE_DESCRIPTIONS.guest}</option>
             </select>
           </div>
           <button
@@ -227,9 +276,9 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
             <label className="hc-label">Invite Role</label>
             <select className="hc-input" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="parent">Parent</option>
-              <option value="member">Member</option>
-              <option value="guest">Guest</option>
+              <option value="parent">{roleLabel('parent')} - {ROLE_DESCRIPTIONS.parent}</option>
+              <option value="member">{roleLabel('member')} - {ROLE_DESCRIPTIONS.member}</option>
+              <option value="guest">{roleLabel('guest')} - {ROLE_DESCRIPTIONS.guest}</option>
             </select>
           </div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
@@ -261,7 +310,7 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="hc-notif-dot" />
             <div className="hc-notif-text">{m.displayName} ({m.identifier})</div>
-            <div className="hc-notif-time">{m.role} · {m.status}</div>
+            <div className="hc-notif-time">{roleLabel(m.role)} - {m.status}</div>
           </div>
           {user?.role === 'owner' && m.role !== 'owner' ? (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -277,9 +326,9 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
                   }
                 }}
               >
-                <option value="parent">parent</option>
-                <option value="member">member</option>
-                <option value="guest">guest</option>
+                <option value="parent">{roleLabel('parent')}</option>
+                <option value="member">{roleLabel('member')}</option>
+                <option value="guest">{roleLabel('guest')}</option>
               </select>
               <button
                 className="hc-btn hc-btn-ghost hc-btn-sm"
@@ -316,10 +365,11 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
       <div className="hc-card-sub" style={{ marginTop: 8 }}>Invites</div>
       {invites.map((invite) => (
         <div key={invite.id} className="hc-notif-chip" style={{ background: 'rgba(74,103,65,0.08)', borderColor: 'rgba(74,103,65,0.2)', display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div className="hc-notif-dot" style={{ background: theme.moss }} />
-            <div className="hc-notif-text">{invite.code} ({invite.role})</div>
+            <div className="hc-notif-text">{invite.code} ({roleLabel(invite.role)})</div>
             <div className="hc-notif-time">{invite.status}</div>
+            <div className="hc-notif-time">{`${window.location.origin}/?inviteCode=${invite.code}`}</div>
           </div>
           <button
             className="hc-btn hc-btn-ghost hc-btn-sm"
@@ -331,7 +381,7 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
               }
             }}
           >
-            Copy Invite Link
+            {copiedCode === invite.code ? 'Copied' : 'Copy Invite Link'}
           </button>
         </div>
       ))}

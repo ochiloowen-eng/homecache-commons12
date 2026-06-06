@@ -367,6 +367,79 @@ function App() {
     await reloadAll();
   }, [reloadAll, offlineMode, vaults]);
 
+  const createTreeNode = useCallback(async (payload) => {
+    if (offlineMode) {
+      const node = {
+        id: `offline-node-${Date.now()}`,
+        x: Number(payload.x) || 340,
+        y: Number(payload.y) || 190,
+        label: payload.label,
+        sub: payload.sub || 'Family member',
+        color: payload.color || '#6A8CAF',
+      };
+      setTree((prev) => ({ ...prev, nodes: [...prev.nodes, node] }));
+      return;
+    }
+    await api.addTreeNode(payload);
+    setTree(await api.getTree());
+  }, [offlineMode]);
+
+  const updateTreeNode = useCallback(async (nodeId, payload) => {
+    if (offlineMode) {
+      setTree((prev) => ({
+        ...prev,
+        nodes: prev.nodes.map((node) => (node.id === nodeId ? { ...node, ...payload } : node)),
+      }));
+      return;
+    }
+    await api.updateTreeNode(nodeId, payload);
+    setTree(await api.getTree());
+  }, [offlineMode]);
+
+  const deleteTreeNode = useCallback(async (nodeId) => {
+    if (offlineMode) {
+      setTree((prev) => ({
+        nodes: prev.nodes.filter((node) => node.id !== nodeId),
+        edges: prev.edges.filter(([source, target]) => source !== nodeId && target !== nodeId),
+      }));
+      return;
+    }
+    await api.deleteTreeNode(nodeId);
+    setTree(await api.getTree());
+  }, [offlineMode]);
+
+  const createTreeEdge = useCallback(async (payload) => {
+    if (offlineMode) {
+      setTree((prev) => {
+        const duplicate = prev.edges.some(([source, target]) =>
+          (source === payload.sourceNode && target === payload.targetNode) ||
+          (source === payload.targetNode && target === payload.sourceNode)
+        );
+        if (duplicate || payload.sourceNode === payload.targetNode) {
+          return prev;
+        }
+        return { ...prev, edges: [...prev.edges, [payload.sourceNode, payload.targetNode]] };
+      });
+      return;
+    }
+    await api.addTreeEdge(payload);
+    setTree(await api.getTree());
+  }, [offlineMode]);
+
+  const deleteTreeEdge = useCallback(async (sourceNode, targetNode) => {
+    if (offlineMode) {
+      setTree((prev) => ({
+        ...prev,
+        edges: prev.edges.filter(([source, target]) =>
+          !((source === sourceNode && target === targetNode) || (source === targetNode && target === sourceNode))
+        ),
+      }));
+      return;
+    }
+    await api.deleteTreeEdge(sourceNode, targetNode);
+    setTree(await api.getTree());
+  }, [offlineMode]);
+
   const viewVault = useCallback(async (vaultId) => {
     const targetVault = vaults.find((v) => Number(v.id) === Number(vaultId));
     if (targetVault?.locked) {
@@ -612,7 +685,18 @@ function App() {
           canManage={canManageContent}
         />
       ) : null,
-      tree: <FamilyTreePage nodes={tree.nodes} edges={tree.edges} />,
+      tree: (
+        <FamilyTreePage
+          nodes={tree.nodes}
+          edges={tree.edges}
+          onCreateNode={createTreeNode}
+          onUpdateNode={updateTreeNode}
+          onDeleteNode={deleteTreeNode}
+          onCreateEdge={createTreeEdge}
+          onDeleteEdge={deleteTreeEdge}
+          canManage={canManageContent}
+        />
+      ),
       members: <MembersPage members={members} onViewProfile={viewMemberProfile} />,
       'member-profile': (
         <MemberProfilePage
@@ -622,7 +706,7 @@ function App() {
       ),
       settings: <SettingsPage sections={settings} onToggle={toggleSetting} canManage={canManageContent} />,
     }),
-    [dashboardData, memories, timelineData, timelineLoading, timelineError, loadTimeline, insightsData, insightsLoading, insightsError, loadInsights, vaults, tree, members, settings, search, updateMemory, deleteMemory, deleteMemoryFile, getMemoryHistory, restoreMemoryRevision, toggleSetting, createVault, updateVault, deleteVault, viewVault, viewMemberProfile, viewingVaultId, vaultMemories, viewingMemberId, canManageContent]
+    [dashboardData, memories, timelineData, timelineLoading, timelineError, loadTimeline, insightsData, insightsLoading, insightsError, loadInsights, vaults, tree, members, settings, search, updateMemory, deleteMemory, deleteMemoryFile, getMemoryHistory, restoreMemoryRevision, toggleSetting, createVault, updateVault, deleteVault, createTreeNode, updateTreeNode, deleteTreeNode, createTreeEdge, deleteTreeEdge, viewVault, viewMemberProfile, viewingVaultId, vaultMemories, viewingMemberId, canManageContent]
   );
 
   if (authLoading) {
