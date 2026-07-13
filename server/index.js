@@ -2005,16 +2005,22 @@ app.patch("/api/settings/:id", requireAuth, requireRole("parent"), async (req, r
 });
 
 if (require.main === module) {
-  startupPromise
-    .then(() => {
-      app.listen(port, host, () => {
+  const startupAndListen = async () => {
+    try {
+      await startupPromise;
+      const server = app.listen(port, host, () => {
         console.log(`Homecache API running on http://${host}:${port}`);
       });
-    })
-    .catch((error) => {
+      server.on("error", (error) => {
+        console.error("Server failed to start:", error);
+        process.exit(1);
+      });
+    } catch (error) {
       console.error("Failed to initialize database:", error);
       process.exit(1);
-    });
+    }
+  };
+  startupAndListen();
 }
 
 module.exports = { app, startupPromise };
