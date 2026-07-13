@@ -3,7 +3,7 @@ services:
     name: homecache-api
     env: node
     plan: starter
-    buildCommand: npm install
+    buildCommand: npm install && npm rebuild sqlite3 --build-from-source
     startCommand: npm run server
     healthCheckPath: /api/health
     envVars:
