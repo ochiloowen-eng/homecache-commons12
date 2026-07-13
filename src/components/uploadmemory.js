@@ -1,11 +1,12 @@
 import { useDropzone } from "react-dropzone";
+import { API_BASE } from "../api";
 
 export default function UploadMemory() {
   const onDrop = async (acceptedFiles) => {
     const formData = new FormData();
     formData.append("file", acceptedFiles[0]);
 
-    await fetch("http://localhost:4000/api/upload", {
+    await fetch(`${API_BASE}/api/upload`, {
       method: "POST",
       body: formData,
     });

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import io from "socket.io-client";
+import { API_BASE } from "../api";
 
-const socket = io("http://localhost:4000");
+const socket = io(API_BASE);
 
 export default function RecentActivity() {
   const [activities, setActivities] = useState([]);

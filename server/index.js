@@ -21,8 +21,39 @@ try {
 }
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = Number(process.env.PORT || 4000);
+const host = process.env.HOST || "0.0.0.0";
 const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
+const allowedOrigins = new Set(
+  [
+    APP_BASE_URL,
+    "http://localhost:3000",
+    "http://localhost:4000",
+    "https://localhost:3000",
+    "https://localhost:4000",
+  ].filter(Boolean)
+);
+for (const extraOrigin of (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean)) {
+  allowedOrigins.add(extraOrigin);
+}
+const allowedOriginPatterns = [
+  /^https:\/\/.*\.vercel\.app$/i,
+  /^https:\/\/.*\.vercel\.dev$/i,
+  /^https:\/\/localhost(:\d+)?$/i,
+  /^http:\/\/localhost(:\d+)?$/i,
+];
+function isOriginAllowed(origin) {
+  if (!origin) {
+    return true;
+  }
+  if (allowedOrigins.has(origin)) {
+    return true;
+  }
+  return allowedOriginPatterns.some((pattern) => pattern.test(origin));
+}
 
 const startupPromise = initDb();
 
@@ -42,7 +73,7 @@ const upload = multer({ storage });
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || APP_BASE_URL === "*" || origin === APP_BASE_URL) {
+    if (!origin || APP_BASE_URL === "*" || isOriginAllowed(origin)) {
       callback(null, true);
       return;
     }
@@ -1976,8 +2007,8 @@ app.patch("/api/settings/:id", requireAuth, requireRole("parent"), async (req, r
 if (require.main === module) {
   startupPromise
     .then(() => {
-      app.listen(port, () => {
-        console.log(`Homecache API running on http://localhost:${port}`);
+      app.listen(port, host, () => {
+        console.log(`Homecache API running on http://${host}:${port}`);
       });
     })
     .catch((error) => {

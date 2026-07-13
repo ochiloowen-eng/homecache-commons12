@@ -3,15 +3,25 @@ services:
     name: homecache-api
     env: node
     plan: free
-    buildCommand: npm install && npm rebuild sqlite3 --build-from-source
-    startCommand: npm run server
+    buildCommand: npm install --include=dev && npm rebuild sqlite3 --build-from-source
+    startCommand: node server/index.js
     healthCheckPath: /api/health
+    disk:
+      name: homecache-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
       - key: APP_BASE_URL
         value: https://homecache-commons12-77de.vercel.app
+      - key: ALLOWED_ORIGINS
+        value: https://homecache-commons12-77de.vercel.app
       - key: DB_PATH
-        value: ./server/data/homecache.db
+        value: /var/data/homecache.db
       - key: UPLOADS_DIR
-        value: ./server/uploads
+        value: /var/data/uploads
