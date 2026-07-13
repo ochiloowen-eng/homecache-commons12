@@ -2,7 +2,7 @@ services:
   - type: web
     name: homecache-api
     env: node
-    plan: starter
+    plan: free
     buildCommand: npm install && npm rebuild sqlite3 --build-from-source
     startCommand: npm run server
     healthCheckPath: /api/health
@@ -12,10 +12,6 @@ services:
       - key: APP_BASE_URL
         value: https://homecache-commons12-77de.vercel.app
       - key: DB_PATH
-        value: /var/data/homecache.db
+        value: ./server/data/homecache.db
       - key: UPLOADS_DIR
-        value: /var/data/uploads
-    disk:
-      name: homecache-data
-      mountPath: /var/data
-      sizeGB: 2
+        value: ./server/uploads
