@@ -51,7 +51,7 @@ function App() {
 
   const currentPage = PAGES.find((p) => p.id === page);
   const canAddMemory = ['owner', 'parent', 'member'].includes(authUser?.role);
-  const canManageContent = ['owner', 'parent', 'member'].includes(authUser?.role);
+  const canManageContent = ['owner', 'parent'].includes(authUser?.role);
   const displayHouseholdName = useMemo(() => {
     const raw = String(authUser?.householdName || '').trim();
     if (!raw) {
@@ -655,9 +655,13 @@ function App() {
           error={timelineError}
           onLoadTimeline={loadTimeline}
           onAddActivityForDate={(date) => {
+            if (!canAddMemory) {
+              return;
+            }
             setNewMemoryDate(date);
             setShowModal(true);
           }}
+          canAddMemory={canAddMemory}
         />
       ),
       insights: (
@@ -713,7 +717,7 @@ function App() {
       ),
       settings: <SettingsPage sections={settings} onToggle={toggleSetting} canManage={canManageContent} />,
     }),
-    [dashboardData, memories, timelineData, timelineLoading, timelineError, loadTimeline, insightsData, insightsLoading, insightsError, loadInsights, vaults, tree, members, settings, search, updateMemory, deleteMemory, deleteMemoryFile, getMemoryHistory, restoreMemoryRevision, toggleSetting, createVault, updateVault, deleteVault, createTreeNode, updateTreeNode, deleteTreeNode, createTreeEdge, deleteTreeEdge, viewVault, viewMemberProfile, viewingVaultId, vaultMemories, viewingMemberId, canManageContent]
+    [dashboardData, memories, timelineData, timelineLoading, timelineError, loadTimeline, insightsData, insightsLoading, insightsError, loadInsights, vaults, tree, members, settings, search, updateMemory, deleteMemory, deleteMemoryFile, getMemoryHistory, restoreMemoryRevision, toggleSetting, createVault, updateVault, deleteVault, createTreeNode, updateTreeNode, deleteTreeNode, createTreeEdge, deleteTreeEdge, viewVault, viewMemberProfile, viewingVaultId, vaultMemories, viewingMemberId, canManageContent, canAddMemory]
   );
 
   if (authLoading) {

@@ -63,6 +63,28 @@ async function createHouseholdUser(baseUrl, suffix) {
   return { identifier, password, token: register.payload.token };
 }
 
+async function createMemberUser(baseUrl, ownerToken, suffix) {
+  const identifier = `member-${suffix}@example.com`;
+  const password = "memberPass123!";
+  const created = await request(baseUrl, "POST", "/api/household/members", {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+    body: JSON.stringify({
+      displayName: `Member ${suffix}`,
+      identifier,
+      password,
+      role: "member",
+    }),
+  });
+  assert.strictEqual(created.response.status, 201, created.text);
+
+  const login = await request(baseUrl, "POST", "/api/auth/login", {
+    body: JSON.stringify({ identifier, password }),
+  });
+  assert.strictEqual(login.response.status, 200, login.text);
+  assert.ok(login.payload.token, "member login should return a session token");
+  return { identifier, password, token: login.payload.token };
+}
+
 async function testRecoveryFlow(baseUrl) {
   const suffix = crypto.randomBytes(3).toString("hex");
   const user = await createHouseholdUser(baseUrl, suffix);
@@ -158,11 +180,74 @@ async function testProtectedFileDownload(baseUrl) {
   assert.strictEqual(authorized.text, "hello family");
 }
 
+async function testMemberContributorPermissions(baseUrl) {
+  const suffix = crypto.randomBytes(3).toString("hex");
+  const owner = await createHouseholdUser(baseUrl, suffix);
+  const ownerHeaders = { Authorization: `Bearer ${owner.token}` };
+  const member = await createMemberUser(baseUrl, owner.token, suffix);
+  const memberHeaders = { Authorization: `Bearer ${member.token}` };
+
+  const createdVault = await request(baseUrl, "POST", "/api/vaults", {
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      name: "Contributor Vault",
+      emoji: "V",
+      description: "A vault members can contribute memories to.",
+      accessLevel: "family",
+      locked: false,
+    }),
+  });
+  assert.strictEqual(createdVault.response.status, 200, createdVault.text);
+
+  const memberMemory = await request(baseUrl, "POST", "/api/memories", {
+    headers: memberHeaders,
+    body: JSON.stringify({
+      title: "Member contribution",
+      text: "A member can still add useful family context.",
+      vaultId: createdVault.payload.id,
+      tags: ["member"],
+    }),
+  });
+  assert.strictEqual(memberMemory.response.status, 201, memberMemory.text);
+
+  const formData = new FormData();
+  formData.append("files", new Blob(["member upload"], { type: "text/plain" }), "member-note.txt");
+  const memberUpload = await request(baseUrl, "POST", `/api/memories/${memberMemory.payload.id}/files`, {
+    headers: memberHeaders,
+    body: formData,
+  });
+  assert.strictEqual(memberUpload.response.status, 201, memberUpload.text);
+  const memberFile = memberUpload.payload.files?.[0];
+  assert.ok(memberFile?.id, "member upload should attach a file");
+
+  const blockedRequests = [
+    ["PATCH", `/api/memories/${memberMemory.payload.id}`, { title: "Changed by member" }],
+    ["DELETE", `/api/memories/${memberMemory.payload.id}`],
+    ["DELETE", `/api/memories/${memberMemory.payload.id}/files/${memberFile.id}`],
+    ["POST", "/api/vaults", { name: "Blocked Vault", emoji: "V", description: "No", accessLevel: "family" }],
+    ["PATCH", `/api/vaults/${createdVault.payload.id}`, { name: "Blocked Rename" }],
+    ["DELETE", `/api/vaults/${createdVault.payload.id}`],
+    ["POST", "/api/tree/nodes", { label: "Blocked Person", x: 100, y: 100 }],
+    ["POST", "/api/tree/edges", { sourceNode: "a", targetNode: "b" }],
+    ["PATCH", "/api/settings/1", { enabled: true }],
+    ["GET", "/api/household/invites"],
+  ];
+
+  for (const [method, route, body] of blockedRequests) {
+    const result = await request(baseUrl, method, route, {
+      headers: memberHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    assert.strictEqual(result.response.status, 403, `${method} ${route} should be admin-only: ${result.text}`);
+  }
+}
+
 async function main() {
   const { server, baseUrl } = await startServer();
   const tests = [
     ["recovery stays private", testRecoveryFlow],
     ["files require auth", testProtectedFileDownload],
+    ["members can contribute but not administer", testMemberContributorPermissions],
   ];
 
   try {

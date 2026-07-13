@@ -895,7 +895,7 @@ export function FamilyTreePage({
   );
 }
 
-export function TimelinePage({ timelineData, loading, error, onLoadTimeline, onAddActivityForDate }) {
+export function TimelinePage({ timelineData, loading, error, onLoadTimeline, onAddActivityForDate, canAddMemory = true }) {
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
 
@@ -1022,7 +1022,7 @@ export function TimelinePage({ timelineData, loading, error, onLoadTimeline, onA
               <button
                 key={`cell-${idx}`}
                 type="button"
-                onClick={() => day && onAddActivityForDate?.(dateValue)}
+                onClick={() => day && canAddMemory && onAddActivityForDate?.(dateValue)}
                 disabled={!day}
                 style={{
                   minHeight: 44,
@@ -1032,7 +1032,7 @@ export function TimelinePage({ timelineData, loading, error, onLoadTimeline, onA
                   background: day && count ? theme.parchment : 'white',
                   opacity: day ? 1 : 0.35,
                   textAlign: 'left',
-                  cursor: day ? 'pointer' : 'default',
+                  cursor: day && canAddMemory ? 'pointer' : 'default',
                 }}
               >
                 <div style={{ fontSize: 12, color: theme.ink }}>{day || ''}</div>

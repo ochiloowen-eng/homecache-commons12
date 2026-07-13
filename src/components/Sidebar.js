@@ -15,7 +15,8 @@ const SECTION_LABELS = { main: 'Library', family: 'Family', system: 'System' };
 
 export default function Sidebar({ page, setPage, memoryCount = 0, mobileOpen = false, onCloseMobile, householdName = 'Your Household', accountName = '', role = '' }) {
   const grouped = {};
-  const visiblePages = PAGES.filter((p) => !(role === 'guest' && p.id === 'settings'));
+  const isAdmin = role === 'owner' || role === 'parent';
+  const visiblePages = PAGES.filter((p) => p.id !== 'settings' || isAdmin);
   visiblePages.forEach((p) => {
     (grouped[p.section] = grouped[p.section] || []).push(p);
   });

@@ -1343,7 +1343,7 @@ app.post("/api/memories", requireAuth, requireRole("owner", "parent", "member"),
   }
 });
 
-app.patch("/api/memories/:id", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.patch("/api/memories/:id", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const id = Number(req.params.id);
@@ -1412,7 +1412,7 @@ app.get("/api/memories/:id/history", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/memories/:id/restore", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.post("/api/memories/:id/restore", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const id = Number(req.params.id);
@@ -1462,7 +1462,7 @@ app.post("/api/memories/:id/restore", requireAuth, requireRole("parent", "member
   }
 });
 
-app.delete("/api/memories/:id", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.delete("/api/memories/:id", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const id = Number(req.params.id);
@@ -1526,7 +1526,7 @@ app.post("/api/memories/:id/files", requireAuth, requireRole("parent", "member")
   }
 });
 
-app.delete("/api/memories/:memoryId/files/:fileId", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.delete("/api/memories/:memoryId/files/:fileId", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const memoryId = Number(req.params.memoryId);
@@ -1608,7 +1608,7 @@ app.get("/api/vaults", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/vaults", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.post("/api/vaults", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const { name, emoji, description, cover, accessLevel, locked } = req.body;
@@ -1630,7 +1630,7 @@ app.post("/api/vaults", requireAuth, requireRole("parent", "member"), async (req
   }
 });
 
-app.patch("/api/vaults/:id", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.patch("/api/vaults/:id", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { name, emoji, description, cover, accessLevel, locked } = req.body;
@@ -1681,7 +1681,7 @@ app.patch("/api/vaults/:id", requireAuth, requireRole("parent", "member"), async
   }
 });
 
-app.delete("/api/vaults/:id", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.delete("/api/vaults/:id", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const id = Number(req.params.id);
@@ -1786,7 +1786,7 @@ app.get("/api/tree", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/tree/nodes", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.post("/api/tree/nodes", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const label = String(req.body.label || "").trim();
@@ -1818,7 +1818,7 @@ app.post("/api/tree/nodes", requireAuth, requireRole("parent", "member"), async 
   }
 });
 
-app.patch("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.patch("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const nodeId = String(req.params.nodeId || "").trim();
@@ -1853,7 +1853,7 @@ app.patch("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent", "member"
   }
 });
 
-app.delete("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.delete("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const nodeId = String(req.params.nodeId || "").trim();
@@ -1872,7 +1872,7 @@ app.delete("/api/tree/nodes/:nodeId", requireAuth, requireRole("parent", "member
   }
 });
 
-app.post("/api/tree/edges", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.post("/api/tree/edges", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const sourceNode = String(req.body.sourceNode || "").trim();
@@ -1910,7 +1910,7 @@ app.post("/api/tree/edges", requireAuth, requireRole("parent", "member"), async 
   }
 });
 
-app.delete("/api/tree/edges/:sourceNode/:targetNode", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.delete("/api/tree/edges/:sourceNode/:targetNode", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const householdId = req.auth.membership.householdId;
     const sourceNode = String(req.params.sourceNode || "").trim();
@@ -1950,7 +1950,7 @@ app.get("/api/settings", requireAuth, async (req, res) => {
   }
 });
 
-app.patch("/api/settings/:id", requireAuth, requireRole("parent", "member"), async (req, res) => {
+app.patch("/api/settings/:id", requireAuth, requireRole("parent"), async (req, res) => {
   try {
     const id = Number(req.params.id);
     const enabled = req.body.enabled ? 1 : 0;
