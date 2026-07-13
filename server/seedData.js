@@ -123,15 +123,15 @@ const seedSettings = [
   {
     section: "Encryption and Security",
     icon: "S",
-    itemLabel: "End-to-End Encryption",
-    itemDescription: "All family data is encrypted with AES-256 before leaving any device.",
+    itemLabel: "Private Access",
+    itemDescription: "Family data is protected by signed-in access controls and stored on the server.",
     enabled: 1,
   },
   {
     section: "Encryption and Security",
     icon: "S",
-    itemLabel: "Zero-Knowledge Architecture",
-    itemDescription: "Homecache servers never have access to plaintext data.",
+    itemLabel: "Signed-In Storage",
+    itemDescription: "Household content is available only after signing in with a valid account.",
     enabled: 1,
   },
   {
@@ -166,7 +166,7 @@ const seedSettings = [
     section: "Privacy and Access",
     icon: "P",
     itemLabel: "Guest Access",
-    itemDescription: "Allow temporary access links for non-members.",
+    itemDescription: "Allow temporary access links for invited non-members.",
     enabled: 0,
   },
 ];

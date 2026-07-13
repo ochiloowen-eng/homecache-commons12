@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { API_BASE } from '../api';
+import { API_BASE, getAuthToken } from '../api';
 import theme from '../theme';
 import { AddVaultModal, EditVaultModal } from '../components/UI';
 
@@ -21,6 +21,93 @@ function isImageFile(file) {
     return true;
   }
   return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name || '');
+}
+
+function MemoryFileAttachment({ memoryId, file, canManage, onDeleteMemoryFile }) {
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const isImage = isImageFile(file);
+  const fileUrl = `${API_BASE}${file.url}`;
+
+  useEffect(() => {
+    if (!isImage) {
+      return undefined;
+    }
+
+    let active = true;
+    let objectUrl = '';
+    const loadPreview = async () => {
+      setLoadingPreview(true);
+      try {
+        const response = await fetch(fileUrl, {
+          headers: { Authorization: `Bearer ${getAuthToken()}` },
+        });
+        if (!response.ok) {
+          throw new Error('Preview unavailable');
+        }
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (active) {
+          setPreviewUrl(objectUrl);
+        } else {
+          URL.revokeObjectURL(objectUrl);
+        }
+      } catch (_error) {
+        if (active) {
+          setPreviewUrl('');
+        }
+      } finally {
+        if (active) {
+          setLoadingPreview(false);
+        }
+      }
+    };
+
+    loadPreview();
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [fileUrl, isImage]);
+
+  const downloadFile = async () => {
+    const response = await fetch(fileUrl, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!response.ok) {
+      return;
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = file.name || 'homecache-file';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  };
+
+  return (
+    <div style={{ border: `1px solid ${theme.fog}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+      {isImage ? (
+        <button className="hc-btn-icon" onClick={downloadFile} title={file.name} style={{ width: 58, height: 58, padding: 2 }}>
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={file.name}
+              style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 4, border: `1px solid ${theme.fog}` }}
+            />
+          ) : loadingPreview ? '...' : 'IMG'}
+        </button>
+      ) : null}
+      <button className="hc-btn hc-btn-ghost hc-btn-sm" onClick={downloadFile} title={file.name}>{file.name}</button>
+      <span style={{ color: theme.fogDark }}>{formatFileSize(file.size)}</span>
+      {canManage ? <button className="hc-btn-icon" onClick={() => onDeleteMemoryFile(memoryId, file.id)} title="Delete file">x</button> : null}
+    </div>
+  );
 }
 
 function formatRevisionDate(value) {
@@ -241,20 +328,13 @@ export function MemoriesPage({
             {m.files?.length ? (
               <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {m.files.map((file) => (
-                  <div key={file.id} style={{ border: `1px solid ${theme.fog}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {isImageFile(file) ? (
-                      <a href={`${API_BASE}${file.url}`} target="_blank" rel="noreferrer" title={file.name}>
-                        <img
-                          src={`${API_BASE}${file.url}`}
-                          alt={file.name}
-                          style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 4, border: `1px solid ${theme.fog}` }}
-                        />
-                      </a>
-                    ) : null}
-                    <a href={`${API_BASE}${file.url}`} target="_blank" rel="noreferrer">{file.name}</a>
-                    <span style={{ color: theme.fogDark }}>{formatFileSize(file.size)}</span>
-                    {canManage ? <button className="hc-btn-icon" onClick={() => onDeleteMemoryFile(m.id, file.id)} title="Delete file">x</button> : null}
-                  </div>
+                  <MemoryFileAttachment
+                    key={file.id}
+                    memoryId={m.id}
+                    file={file}
+                    canManage={canManage}
+                    onDeleteMemoryFile={onDeleteMemoryFile}
+                  />
                 ))}
               </div>
             ) : null}
@@ -318,7 +398,7 @@ export function VaultsPage({ vaults, onCreateVault, onEditVault, onDeleteVault, 
   return (
     <div>
       <div className="hc-page-title">Memory Vaults</div>
-      <div className="hc-page-sub">Encrypted, access-controlled collections of family data.</div>
+      <div className="hc-page-sub">Access-controlled collections of family data.</div>
       <div className="hc-grid-3">
         {vaults.map((v) => (
           <div className="hc-vault-card" key={v.id} style={{ position: 'relative' }}>
@@ -437,20 +517,13 @@ export function VaultContentsPage({
               {m.files?.length ? (
                 <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {m.files.map((file) => (
-                    <div key={file.id} style={{ border: `1px solid ${theme.fog}`, borderRadius: 6, padding: '4px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {isImageFile(file) ? (
-                        <a href={`${API_BASE}${file.url}`} target="_blank" rel="noreferrer" title={file.name}>
-                          <img
-                            src={`${API_BASE}${file.url}`}
-                            alt={file.name}
-                            style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 4, border: `1px solid ${theme.fog}` }}
-                          />
-                        </a>
-                      ) : null}
-                      <a href={`${API_BASE}${file.url}`} target="_blank" rel="noreferrer">{file.name}</a>
-                      <span style={{ color: theme.fogDark }}>{formatFileSize(file.size)}</span>
-                      {canManage ? <button className="hc-btn-icon" onClick={() => onDeleteMemoryFile(m.id, file.id)} title="Delete file">x</button> : null}
-                    </div>
+                    <MemoryFileAttachment
+                      key={file.id}
+                      memoryId={m.id}
+                      file={file}
+                      canManage={canManage}
+                      onDeleteMemoryFile={onDeleteMemoryFile}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -1148,7 +1221,7 @@ export function SettingsPage({ sections, onToggle, canManage = true }) {
   return (
     <div>
       <div className="hc-page-title">Settings</div>
-      <div className="hc-page-sub">Manage your family commons, encryption, and sync preferences.</div>
+      <div className="hc-page-sub">Manage your family commons, privacy, and sharing preferences.</div>
       {sections.map((section) => (
         <div className="hc-card" key={section.title} style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>

@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const sqlite3 = require("sqlite3").verbose();
+
 const {
   seedVaults,
   seedMembers,
@@ -14,13 +15,18 @@ const {
 
 const dataDir = path.join(__dirname, "data");
 const dbPath = process.env.DB_PATH || path.join(dataDir, "homecache.db");
-
 const dbDir = path.dirname(dbPath);
+
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
 const db = new sqlite3.Database(dbPath);
+const dbType = "sqlite";
+
+function legacyHashPassword(password) {
+  return crypto.createHash("sha256").update(String(password)).digest("hex");
+}
 
 const run = (sql, params = []) =>
   new Promise((resolve, reject) => {
@@ -62,7 +68,6 @@ async function ensureColumn(table, column, definition) {
     try {
       await run(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${definition}`);
     } catch (error) {
-      // Safe to ignore if another migration path already added the same column.
       if (!String(error?.message || "").toLowerCase().includes("duplicate column name")) {
         throw error;
       }
@@ -143,6 +148,7 @@ async function createSchema() {
       FOREIGN KEY(accountId) REFERENCES accounts(id)
     )
   `);
+
   await run(`
     CREATE TABLE IF NOT EXISTS vaults (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -279,15 +285,6 @@ async function seedIfEmpty() {
   if (!defaultHousehold) {
     const household = await run("INSERT INTO households (name) VALUES (?)", ["Default Family"]);
     defaultHousehold = { id: household.lastID };
-    const hash = crypto.createHash("sha256").update("demo1234").digest("hex");
-    const owner = await run(
-      "INSERT INTO accounts (displayName, identifier, passwordHash) VALUES (?, ?, ?)",
-      ["Claire H.", "owner@homecache.dev", hash]
-    );
-    await run(
-      "INSERT INTO household_memberships (householdId, accountId, role, status) VALUES (?, ?, ?, ?)",
-      [defaultHousehold.id, owner.lastID, "owner", "active"]
-    );
   }
 
   const row = await get("SELECT COUNT(*) as count FROM memories");
@@ -387,13 +384,41 @@ async function seedIfEmpty() {
   await run("UPDATE tree_edges SET householdId = ? WHERE householdId IS NULL", [defaultHousehold.id]);
   await run("UPDATE settings SET householdId = ? WHERE householdId IS NULL", [defaultHousehold.id]);
   await run("UPDATE memories SET emoji = 'M' WHERE TRIM(emoji) = '??'");
-  await run("UPDATE vaults SET emoji = CASE name WHEN 'Family Photos' THEN 'P' WHEN 'Legal and Estate' THEN 'L' WHEN 'Heritage Recipes' THEN 'R' WHEN 'Medical History' THEN 'H' ELSE 'V' END WHERE TRIM(emoji) = '??'");
-  await run("UPDATE settings SET icon = CASE section WHEN 'Encryption and Security' THEN 'S' WHEN 'Sync and Distribution' THEN 'N' WHEN 'Privacy and Access' THEN 'P' ELSE 'S' END WHERE TRIM(icon) = '??'");
+  await run(
+    `UPDATE vaults SET emoji = CASE name
+      WHEN 'Family Photos' THEN 'P'
+      WHEN 'Legal and Estate' THEN 'L'
+      WHEN 'Heritage Recipes' THEN 'R'
+      WHEN 'Medical History' THEN 'H'
+      ELSE 'V' END
+    WHERE TRIM(emoji) = '??'`
+  );
+  await run(
+    `UPDATE settings SET icon = CASE section
+      WHEN 'Encryption and Security' THEN 'S'
+      WHEN 'Sync and Distribution' THEN 'N'
+      WHEN 'Privacy and Access' THEN 'P'
+      ELSE 'S' END
+    WHERE TRIM(icon) = '??'`
+  );
+}
+
+async function removeKnownDemoAccount() {
+  const demo = await get("SELECT id, passwordHash FROM accounts WHERE identifier = ?", ["owner@homecache.dev"]);
+  if (!demo || demo.passwordHash !== legacyHashPassword("demo1234")) {
+    return;
+  }
+  await run("DELETE FROM auth_sessions WHERE accountId = ?", [demo.id]);
+  await run("DELETE FROM account_recovery_tokens WHERE accountId = ?", [demo.id]);
+  await run("DELETE FROM household_memberships WHERE accountId = ?", [demo.id]);
+  await run("DELETE FROM accounts WHERE id = ?", [demo.id]);
 }
 
 async function initDb() {
+  console.log("Using SQLite database");
   await createSchema();
   await seedIfEmpty();
+  await removeKnownDemoAccount();
 }
 
 module.exports = {
@@ -402,9 +427,5 @@ module.exports = {
   get,
   all,
   initDb,
+  dbType,
 };
-
-
-
-
-

@@ -5,6 +5,12 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const { all, get, run, initDb } = require("./db");
+const {
+  SECURITY_CONFIG,
+  createRateLimitMiddleware,
+  resetRateLimit,
+  validatePassword,
+} = require("./security");
 let nodemailer = null;
 try {
   // Optional dependency. If unavailable, invite flow still works without email delivery.
@@ -16,9 +22,9 @@ try {
 
 const app = express();
 const port = process.env.PORT || 4000;
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
 
-// Initialize database on startup
-initDb().catch(console.error);
+const startupPromise = initDb();
 
 const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -34,9 +40,39 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || APP_BASE_URL === "*" || origin === APP_BASE_URL) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Origin not allowed"));
+  },
+}));
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Content-Security-Policy", "default-src 'self'");
+  next();
+});
+
 app.use(express.json());
-app.use("/uploads", express.static(uploadsDir));
+
+// Rate limiting on auth endpoints
+const loginRateLimit = createRateLimitMiddleware(
+  "login",
+  SECURITY_CONFIG.RATE_LIMIT_LOGIN,
+  SECURITY_CONFIG.RATE_LIMIT_WINDOW
+);
+const recoveryRateLimit = createRateLimitMiddleware(
+  "recovery",
+  SECURITY_CONFIG.RATE_LIMIT_RECOVERY,
+  SECURITY_CONFIG.RATE_LIMIT_WINDOW
+);
 
 app.get("/", (_req, res) => {
   res.type("html").send(`
@@ -57,11 +93,38 @@ const SESSION_TTL_DAYS = 14;
 const RECOVERY_TTL_MINUTES = 30;
 const INVITE_DEFAULT_DAYS = 7;
 const VALID_ROLES = new Set(["owner", "parent", "member", "guest"]);
-const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
+const PASSWORD_HASH_ITERATIONS = 210000;
+const PASSWORD_HASH_KEYLEN = 32;
+const PASSWORD_HASH_DIGEST = "sha256";
 const notificationStreams = new Map();
 
 function hashPassword(password) {
-  return crypto.createHash("sha256").update(password).digest("hex");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto
+    .pbkdf2Sync(String(password), salt, PASSWORD_HASH_ITERATIONS, PASSWORD_HASH_KEYLEN, PASSWORD_HASH_DIGEST)
+    .toString("hex");
+  return `pbkdf2$${PASSWORD_HASH_ITERATIONS}$${salt}$${hash}`;
+}
+
+function legacyHashPassword(password) {
+  return crypto.createHash("sha256").update(String(password)).digest("hex");
+}
+
+function verifyPassword(password, storedHash) {
+  const value = String(storedHash || "");
+  const parts = value.split("$");
+  if (parts.length === 4 && parts[0] === "pbkdf2") {
+    const iterations = Number(parts[1]);
+    const salt = parts[2];
+    const expected = Buffer.from(parts[3], "hex");
+    const actual = crypto.pbkdf2Sync(String(password), salt, iterations, expected.length, PASSWORD_HASH_DIGEST);
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+  return value === legacyHashPassword(password);
+}
+
+function needsPasswordRehash(storedHash) {
+  return !String(storedHash || "").startsWith("pbkdf2$");
 }
 
 function randomToken() {
@@ -131,6 +194,45 @@ async function sendInviteEmail({ to, householdName, inviterName, role, code, exp
   });
 
   return { sent: true, reason: "sent", inviteUrl };
+}
+
+async function sendRecoveryEmail({ to, displayName, token, expiresAt }) {
+  if (!nodemailer || !isEmail(to)) {
+    return { sent: false };
+  }
+  const host = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 0);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM;
+
+  if (!host || !smtpPort || !user || !pass || !from) {
+    return { sent: false };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: { user, pass },
+  });
+
+  const expiresDate = new Date(expiresAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Reset your Homecache password",
+    text: [
+      `Hi ${displayName || "there"},`,
+      "",
+      `Use this recovery token to reset your Homecache password: ${token}`,
+      `Expires: ${expiresDate}`,
+      "",
+      "If you did not request this, you can ignore this message.",
+    ].join("\n"),
+  });
+
+  return { sent: true };
 }
 
 async function getSessionFromRequest(req) {
@@ -282,7 +384,7 @@ async function attachFiles(memories) {
       mimeType: row.mimeType,
       size: row.size,
       createdAt: row.createdAt,
-      url: `/uploads/${row.storedName}`,
+      url: `/api/memories/${row.memoryId}/files/${row.id}/download`,
     });
     return acc;
   }, {});
@@ -349,8 +451,14 @@ app.post("/api/auth/register", async (req, res) => {
     const inviteCode = String(req.body.inviteCode || "").trim();
     const householdName = String(req.body.householdName || "").trim();
 
-    if (!displayName || !identifier || password.length < 6) {
-      res.status(400).json({ error: "displayName, identifier, and password(6+) are required" });
+    if (!displayName || !identifier) {
+      res.status(400).json({ error: "displayName and identifier are required" });
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      res.status(400).json({ error: passwordValidation.reason });
       return;
     }
 
@@ -434,7 +542,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", loginRateLimit, async (req, res) => {
   try {
     const identifier = normalizeIdentifier(req.body.identifier);
     const password = String(req.body.password || "");
@@ -448,9 +556,13 @@ app.post("/api/auth/login", async (req, res) => {
        FROM accounts WHERE identifier = ?`,
       [identifier]
     );
-    if (!account || account.passwordHash !== hashPassword(password)) {
+    if (!account || !verifyPassword(password, account.passwordHash)) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
+    }
+
+    if (needsPasswordRehash(account.passwordHash)) {
+      await run("UPDATE accounts SET passwordHash = ? WHERE id = ?", [hashPassword(password), account.id]);
     }
 
     const membership = await get(
@@ -534,10 +646,17 @@ app.post("/api/household/members", requireAuth, requireRole("owner"), async (req
     const role = String(req.body.role || "member").toLowerCase();
     const householdId = req.auth.membership.householdId;
 
-    if (!displayName || !identifier || password.length < 6) {
-      res.status(400).json({ error: "displayName, identifier, and password(6+) are required" });
+    if (!displayName || !identifier) {
+      res.status(400).json({ error: "displayName and identifier are required" });
       return;
     }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      res.status(400).json({ error: passwordValidation.reason });
+      return;
+    }
+
     if (!["parent", "member", "guest"].includes(role)) {
       res.status(400).json({ error: "Role must be parent/member/guest" });
       return;
@@ -828,7 +947,7 @@ app.get("/api/household/invites", requireAuth, requireRole("owner", "parent"), a
   }
 });
 
-app.post("/api/auth/recovery/request", async (req, res) => {
+app.post("/api/auth/recovery/request", recoveryRateLimit, async (req, res) => {
   try {
     const identifier = normalizeIdentifier(req.body.identifier);
     if (!identifier) {
@@ -836,30 +955,56 @@ app.post("/api/auth/recovery/request", async (req, res) => {
       return;
     }
 
-    const account = await get("SELECT id FROM accounts WHERE identifier = ?", [identifier]);
+    const account = await get("SELECT id, displayName, identifier FROM accounts WHERE identifier = ?", [identifier]);
     if (!account) {
       res.json({ ok: true, message: "If this account exists, recovery instructions were created." });
       return;
     }
 
     const token = `REC-${randomToken().slice(0, 18).toUpperCase()}`;
+    const expiresAt = plusMinutes(RECOVERY_TTL_MINUTES);
     await run(
       "INSERT INTO account_recovery_tokens (accountId, token, expiresAt) VALUES (?, ?, ?)",
-      [account.id, token, plusMinutes(RECOVERY_TTL_MINUTES)]
+      [account.id, token, expiresAt]
     );
 
-    res.json({ ok: true, recoveryToken: token, expiresInMinutes: RECOVERY_TTL_MINUTES });
+    const emailResult = await sendRecoveryEmail({
+      to: account.identifier,
+      displayName: account.displayName,
+      token,
+      expiresAt,
+    });
+
+    if (process.env.ENABLE_DEV_RECOVERY_TOKENS === "true" && process.env.NODE_ENV !== "production") {
+      res.json({ ok: true, recoveryToken: token, expiresInMinutes: RECOVERY_TTL_MINUTES });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      emailSent: emailResult.sent,
+      message: emailResult.sent
+        ? "If this account exists, recovery instructions were sent."
+        : "Recovery instructions were created, but email delivery is not configured.",
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post("/api/auth/recovery/reset", async (req, res) => {
+app.post("/api/auth/recovery/reset", recoveryRateLimit, async (req, res) => {
   try {
     const token = String(req.body.token || "").trim();
     const newPassword = String(req.body.newPassword || "");
-    if (!token || newPassword.length < 6) {
-      res.status(400).json({ error: "token and newPassword(6+) are required" });
+
+    if (!token) {
+      res.status(400).json({ error: "token is required" });
+      return;
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      res.status(400).json({ error: passwordValidation.reason });
       return;
     }
 
@@ -959,7 +1104,7 @@ app.get("/api/dashboard", requireAuth, async (req, res) => {
         memories: memoriesCount.count,
         stored: "47 GB",
         members: membersCount.count,
-        syncNodes: 4,
+        collections: storageRows.length,
       },
       recentMemories,
       storage: storageRows,
@@ -1417,6 +1562,38 @@ app.delete("/api/memories/:memoryId/files/:fileId", requireAuth, requireRole("pa
   }
 });
 
+app.get("/api/memories/:memoryId/files/:fileId/download", requireAuth, async (req, res) => {
+  try {
+    const householdId = req.auth.membership.householdId;
+    const memoryId = Number(req.params.memoryId);
+    const fileId = Number(req.params.fileId);
+
+    const memory = await getMemoryOr404(memoryId, householdId, res);
+    if (!memory) {
+      return;
+    }
+
+    const file = await get("SELECT * FROM memory_files WHERE id = ? AND memoryId = ?", [fileId, memoryId]);
+    if (!file) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+
+    const filePath = path.resolve(uploadsDir, file.storedName);
+    const resolvedUploadsDir = path.resolve(uploadsDir);
+    if (!filePath.startsWith(`${resolvedUploadsDir}${path.sep}`) || !fs.existsSync(filePath)) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+
+    res.setHeader("Content-Type", file.mimeType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${path.basename(file.originalName).replace(/"/g, "")}"`);
+    res.sendFile(filePath);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/vaults", requireAuth, async (req, res) => {
   try {
     const rows = await all("SELECT * FROM vaults WHERE householdId = ? ORDER BY id", [req.auth.membership.householdId]);
@@ -1796,18 +1973,17 @@ app.patch("/api/settings/:id", requireAuth, requireRole("parent", "member"), asy
   }
 });
 
-initDb()
-  .then(() => {
-    app.listen(port, () => {
-      console.log(`Homecache API running on http://localhost:${port}`);
+if (require.main === module) {
+  startupPromise
+    .then(() => {
+      app.listen(port, () => {
+        console.log(`Homecache API running on http://localhost:${port}`);
+      });
+    })
+    .catch((error) => {
+      console.error("Failed to initialize database:", error);
+      process.exit(1);
     });
-  })
-  .catch((error) => {
-    console.error("Failed to initialize database:", error);
-    process.exit(1);
-  });
+}
 
-
-
-
-
+module.exports = { app, startupPromise };

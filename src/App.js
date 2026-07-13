@@ -172,6 +172,9 @@ function App() {
 
   useEffect(() => {
     const timeout = setTimeout(async () => {
+      if (!authUser) {
+        return;
+      }
       if (offlineMode) {
         const q = search.trim().toLowerCase();
         if (!q) {
@@ -196,7 +199,7 @@ function App() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [search, offlineMode, offlineMemoriesSource]);
+  }, [authUser, search, offlineMode, offlineMemoriesSource]);
 
   const saveMemory = useCallback(async (payload) => {
     if (offlineMode) {
@@ -617,6 +620,10 @@ function App() {
     }
     setAuthUser(null);
     setAuthToken('');
+    setPage('dashboard');
+    setSearch('');
+    setLoading(false);
+    setError('');
     setHouseholdMembers([]);
     setHouseholdInvites([]);
   }, []);

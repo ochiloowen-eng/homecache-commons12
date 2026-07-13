@@ -33,7 +33,7 @@ export default function Sidebar({ page, setPage, memoryCount = 0, mobileOpen = f
         <div className="hc-logo">
           <LogoIcon className="hc-logo-icon" />
           <div className="hc-logo-title">Homecache</div>
-          <div className="hc-logo-sub">Commons - Distributed Memory</div>
+          <div className="hc-logo-sub">Commons - Family Memory</div>
         </div>
 
         <div className="hc-family-switcher">

@@ -1,7 +1,7 @@
 {
     "name": "homecache-commons",
     "version": "1.0.0",
-    "description": "Homecache Commons â€” A Distributed Memory Platform for Families",
+    "description": "Homecache Commons - A Distributed Memory Platform for Families",
     "private": true,
     "dependencies": {
         "chart.js": "^4.5.1",
@@ -9,6 +9,7 @@
         "cors": "^2.8.6",
         "express": "^5.2.1",
         "multer": "^2.1.1",
+        "nodemailer": "^7.0.11",
         "react": "^18.2.0",
         "react-chartjs-2": "^5.3.1",
         "react-dom": "^18.2.0",
@@ -20,7 +21,9 @@
     "scripts": {
         "start": "react-scripts start",
         "build": "react-scripts build",
-        "test": "react-scripts test",
+        "test": "node tests/run.js",
+        "test:ui": "react-scripts test",
+        "test:browser": "node tests/browser-smoke.js",
         "eject": "react-scripts eject",
         "server": "node server/index.js",
         "start:client": "react-scripts start",
@@ -42,5 +45,8 @@
             "last 1 firefox version",
             "last 1 safari version"
         ]
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.60.0"
     }
 }

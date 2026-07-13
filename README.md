@@ -6,7 +6,7 @@ Homecache Commons is a React + Express + SQLite app for preserving family memori
 
 - React 18 (Create React App)
 - Express API server
-- SQLite database (`server/data/homecache.db`)
+- SQLite database (`server/data/homecache.db` by default)
 
 ## Run Locally
 

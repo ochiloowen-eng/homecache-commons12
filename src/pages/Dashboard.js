@@ -12,15 +12,15 @@ export default function Dashboard({ data, onViewAllActivity }) {
       <div className="hc-dash-hero">
         <div className="hc-dash-hero-content">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <span className="hc-encrypt-badge">End-to-End Encrypted</span>
+            <span className="hc-encrypt-badge">Protected Access</span>
             <span className="hc-encrypt-badge" style={{ background: 'rgba(200,121,42,0.15)', color: theme.amberLight, border: 'none' }}>
-              Distributed Sync Active
+              Signed-in Sharing
             </span>
           </div>
           <h1>Welcome back.<br />Your family's memory is protected.</h1>
-          <p>Homecache Commons is keeping your family data synchronized, encrypted, and distributed across active nodes.</p>
+          <p>Homecache Commons keeps your family data organized, access-controlled, and available to signed-in household members.</p>
           <div className="hc-dash-hero-stats">
-            {[[hero.memories || 0, 'memories'], [hero.stored || '0 GB', 'stored'], [hero.members || 0, 'members'], [hero.syncNodes || 0, 'sync nodes']].map(([v, l]) => (
+            {[[hero.memories || 0, 'memories'], [hero.stored || '0 GB', 'stored'], [hero.members || 0, 'members'], [hero.collections || 0, 'collections']].map(([v, l]) => (
               <div className="hc-hero-stat" key={l}>
                 <div className="hc-hero-stat-val">{v}</div>
                 <div className="hc-hero-stat-label">{l}</div>
@@ -51,7 +51,7 @@ export default function Dashboard({ data, onViewAllActivity }) {
         <div>
           <div className="hc-card" style={{ marginBottom: 16 }}>
             <div className="hc-card-title">Storage Overview</div>
-            <div className="hc-card-sub">DISTRIBUTED NODE USAGE</div>
+            <div className="hc-card-sub">HOUSEHOLD STORAGE USAGE</div>
             {storage.map((entry) => (
               <div key={entry.name} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -67,7 +67,7 @@ export default function Dashboard({ data, onViewAllActivity }) {
               <ProgressRing pct={72} />
               <div>
                 <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 22, fontWeight: 700, color: theme.ink }}>47 / 65 GB</div>
-                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: theme.fogDark }}>TOTAL DISTRIBUTED STORAGE</div>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: theme.fogDark }}>TOTAL HOUSEHOLD STORAGE</div>
               </div>
             </div>
           </div>

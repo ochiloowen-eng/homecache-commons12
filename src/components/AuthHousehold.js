@@ -58,11 +58,7 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
       }
       if (mode === 'recover') {
         const response = await onRequestRecovery({ identifier });
-        if (response?.recoveryToken) {
-          setInfo(`Recovery token: ${response.recoveryToken}`);
-        } else {
-          setInfo('Recovery request submitted.');
-        }
+        setInfo(response?.message || 'Recovery request submitted.');
         return;
       }
       await onResetRecovery({ token: recoveryToken, newPassword: recoveryPassword });
@@ -76,8 +72,11 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
   return (
     <div style={{ minHeight: '100vh', background: theme.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div className="hc-card" style={{ width: '100%', maxWidth: 460 }}>
-        <div className="hc-page-title" style={{ fontSize: 28 }}>Homecache Accounts</div>
-        <div className="hc-page-sub">Sign in, join a household, or start a new family archive.</div>
+        <div className="hc-page-title" style={{ fontSize: 28 }}>Sign in to continue</div>
+        <div className="hc-page-sub">Log in, join a household, or start a new family archive.</div>
+        <div className="hc-card-sub" style={{ marginBottom: 12, color: theme.fogDark }}>
+          Account recovery is delivered by email when configured, or shown only in development.
+        </div>
         <div className="hc-chips" style={{ marginBottom: 12 }}>
           <div className={`hc-chip${mode === 'login' ? ' active' : ''}`} onClick={() => setMode('login')}>sign in</div>
           <div className={`hc-chip${mode === 'join' ? ' active' : ''}`} onClick={() => setMode('join')}>join household</div>
@@ -97,48 +96,48 @@ export function AuthScreen({ onLogin, onRegister, onRequestRecovery, onResetReco
 
         {(mode === 'register' || mode === 'join') && (
           <div className="hc-form-group">
-            <label className="hc-label">Name</label>
-            <input className="hc-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            <label className="hc-label" htmlFor="auth-display-name">Name</label>
+            <input id="auth-display-name" className="hc-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
         )}
 
         {(mode === 'login' || mode === 'register' || mode === 'join' || mode === 'recover') && (
           <div className="hc-form-group">
-            <label className="hc-label">Email or Phone</label>
-            <input className="hc-input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
+            <label className="hc-label" htmlFor="auth-identifier">Email or Phone</label>
+            <input id="auth-identifier" className="hc-input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </div>
         )}
 
         {(mode === 'login' || mode === 'register' || mode === 'join') && (
           <div className="hc-form-group">
-            <label className="hc-label">Password</label>
-            <input type="password" className="hc-input" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="hc-label" htmlFor="auth-password">Password</label>
+            <input id="auth-password" type="password" className="hc-input" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         )}
 
         {mode === 'join' && (
           <div className="hc-form-group">
-            <label className="hc-label">Invite Code</label>
-            <input className="hc-input" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="e.g. HC-ABC123..." />
+            <label className="hc-label" htmlFor="auth-invite-code">Invite Code</label>
+            <input id="auth-invite-code" className="hc-input" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="e.g. HC-ABC123..." />
           </div>
         )}
 
         {mode === 'register' && (
           <div className="hc-form-group">
-            <label className="hc-label">Household Name</label>
-            <input className="hc-input" value={householdName} onChange={(e) => setHouseholdName(e.target.value)} placeholder="e.g. The Wanjiku Family" />
+            <label className="hc-label" htmlFor="auth-household-name">Household Name</label>
+            <input id="auth-household-name" className="hc-input" value={householdName} onChange={(e) => setHouseholdName(e.target.value)} placeholder="e.g. The Wanjiku Family" />
           </div>
         )}
 
         {mode === 'reset' && (
           <>
             <div className="hc-form-group">
-              <label className="hc-label">Recovery Token</label>
-              <input className="hc-input" value={recoveryToken} onChange={(e) => setRecoveryToken(e.target.value)} />
+              <label className="hc-label" htmlFor="auth-recovery-token">Recovery Token</label>
+              <input id="auth-recovery-token" className="hc-input" value={recoveryToken} onChange={(e) => setRecoveryToken(e.target.value)} />
             </div>
             <div className="hc-form-group">
-              <label className="hc-label">New Password</label>
-              <input type="password" className="hc-input" value={recoveryPassword} onChange={(e) => setRecoveryPassword(e.target.value)} />
+              <label className="hc-label" htmlFor="auth-recovery-password">New Password</label>
+              <input id="auth-recovery-password" type="password" className="hc-input" value={recoveryPassword} onChange={(e) => setRecoveryPassword(e.target.value)} />
             </div>
           </>
         )}
@@ -220,20 +219,20 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
         <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
           <div className="hc-card-sub" style={{ marginTop: 2 }}>Add Member Account</div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Full Name</label>
-            <input className="hc-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            <label className="hc-label" htmlFor="member-display-name">Full Name</label>
+            <input id="member-display-name" className="hc-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Email or Phone</label>
-            <input className="hc-input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
+            <label className="hc-label" htmlFor="member-identifier">Email or Phone</label>
+            <input id="member-identifier" className="hc-input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Temporary Password</label>
-            <input type="password" className="hc-input" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="hc-label" htmlFor="member-password">Temporary Password</label>
+            <input id="member-password" type="password" className="hc-input" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Member Role</label>
-            <select className="hc-input" value={memberRole} onChange={(e) => setMemberRole(e.target.value)}>
+            <label className="hc-label" htmlFor="member-role">Member Role</label>
+            <select id="member-role" className="hc-input" value={memberRole} onChange={(e) => setMemberRole(e.target.value)}>
               <option value="parent">{roleLabel('parent')} - {ROLE_DESCRIPTIONS.parent}</option>
               <option value="member">{roleLabel('member')} - {ROLE_DESCRIPTIONS.member}</option>
               <option value="guest">{roleLabel('guest')} - {ROLE_DESCRIPTIONS.guest}</option>
@@ -274,20 +273,20 @@ export function HouseholdAdmin({ user, householdName, members, invites, onRefres
 
           <div className="hc-card-sub" style={{ marginTop: 8 }}>Or Create Invite Link</div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Invite Role</label>
-            <select className="hc-input" value={role} onChange={(e) => setRole(e.target.value)}>
+            <label className="hc-label" htmlFor="invite-role">Invite Role</label>
+            <select id="invite-role" className="hc-input" value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="parent">{roleLabel('parent')} - {ROLE_DESCRIPTIONS.parent}</option>
               <option value="member">{roleLabel('member')} - {ROLE_DESCRIPTIONS.member}</option>
               <option value="guest">{roleLabel('guest')} - {ROLE_DESCRIPTIONS.guest}</option>
             </select>
           </div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Invite Contact (optional)</label>
-            <input className="hc-input" value={invitedContact} onChange={(e) => setInvitedContact(e.target.value)} />
+            <label className="hc-label" htmlFor="invite-contact">Invite Contact (optional)</label>
+            <input id="invite-contact" className="hc-input" value={invitedContact} onChange={(e) => setInvitedContact(e.target.value)} />
           </div>
           <div className="hc-form-group" style={{ marginBottom: 0 }}>
-            <label className="hc-label">Expires In Days</label>
-            <input type="number" min="1" max="30" className="hc-input" value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value || 7))} />
+            <label className="hc-label" htmlFor="invite-expires-days">Expires In Days</label>
+            <input id="invite-expires-days" type="number" min="1" max="30" className="hc-input" value={expiresInDays} onChange={(e) => setExpiresInDays(Number(e.target.value || 7))} />
           </div>
           <button
             className="hc-btn hc-btn-primary"

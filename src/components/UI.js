@@ -76,16 +76,16 @@ export function AddMemoryModal({ vaults, members = [], currentUserName = '', onC
         <div className="hc-modal-title">Add a Memory</div>
         <div className="hc-modal-sub">Preserve something important for your family commons.</div>
         <div className="hc-form-group">
-          <label className="hc-label">Memory Title</label>
-          <input className="hc-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Reunion 2024..." />
+          <label className="hc-label" htmlFor="memory-title">Memory Title</label>
+          <input id="memory-title" className="hc-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Summer Reunion 2024..." />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Description</label>
-          <textarea className="hc-input hc-textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe this memory..." />
+          <label className="hc-label" htmlFor="memory-description">Description</label>
+          <textarea id="memory-description" className="hc-input hc-textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder="Describe this memory..." />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Author</label>
-          <select className="hc-input" value={author} onChange={(e) => setAuthor(e.target.value)}>
+          <label className="hc-label" htmlFor="memory-author">Author</label>
+          <select id="memory-author" className="hc-input" value={author} onChange={(e) => setAuthor(e.target.value)}>
             {currentUserName ? <option value={currentUserName}>{currentUserName}</option> : null}
             {members
               .filter((m) => m?.displayName && m.displayName !== currentUserName)
@@ -95,22 +95,23 @@ export function AddMemoryModal({ vaults, members = [], currentUserName = '', onC
           </select>
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Date</label>
-          <input className="hc-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <label className="hc-label" htmlFor="memory-date">Date</label>
+          <input id="memory-date" className="hc-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Vault</label>
-          <select className="hc-input" value={vaultId} onChange={(e) => setVaultId(e.target.value)}>
+          <label className="hc-label" htmlFor="memory-vault">Vault</label>
+          <select id="memory-vault" className="hc-input" value={vaultId} onChange={(e) => setVaultId(e.target.value)}>
             {vaults.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Tags (comma-separated)</label>
-          <input className="hc-input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="family, photos, 2024..." />
+          <label className="hc-label" htmlFor="memory-tags">Tags (comma-separated)</label>
+          <input id="memory-tags" className="hc-input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="family, photos, 2024..." />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Scan or Take Photo</label>
+          <label className="hc-label" htmlFor="memory-scan-files">Scan or Take Photo</label>
           <input
+            id="memory-scan-files"
             className="hc-input"
             type="file"
             accept="image/*"
@@ -121,8 +122,9 @@ export function AddMemoryModal({ vaults, members = [], currentUserName = '', onC
           <div className="hc-card-sub" style={{ marginTop: 6 }}>Use your phone camera to scan documents or capture photos.</div>
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Attach Files</label>
+          <label className="hc-label" htmlFor="memory-attach-files">Attach Files</label>
           <input
+            id="memory-attach-files"
             className="hc-input"
             type="file"
             accept="image/*,video/*,audio/*,.mp3,.wav,.m4a,.flac,.aac,.ogg,.pdf,.doc,.docx,.txt"
@@ -182,20 +184,20 @@ export function AddVaultModal({ onClose, onSave }) {
         <div className="hc-modal-title">Create New Vault</div>
         <div className="hc-modal-sub">Start a new collection for your family memories.</div>
         <div className="hc-form-group">
-          <label className="hc-label">Vault Name</label>
-          <input className="hc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Photos..." />
+          <label className="hc-label" htmlFor="vault-name">Vault Name</label>
+          <input id="vault-name" className="hc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Summer Photos..." />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Emoji</label>
-          <input className="hc-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="📸" maxLength={2} />
+          <label className="hc-label" htmlFor="vault-emoji">Emoji</label>
+          <input id="vault-emoji" className="hc-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="Icon" maxLength={2} />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Description</label>
-          <textarea className="hc-input hc-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this vault for?" />
+          <label className="hc-label" htmlFor="vault-description">Description</label>
+          <textarea id="vault-description" className="hc-input hc-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this vault for?" />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Access Level</label>
-          <select className="hc-input" value={accessLevel} onChange={(e) => setAccessLevel(e.target.value)}>
+          <label className="hc-label" htmlFor="vault-access-level">Access Level</label>
+          <select id="vault-access-level" className="hc-input" value={accessLevel} onChange={(e) => setAccessLevel(e.target.value)}>
             <option value="family">Family (visible to all)</option>
             <option value="restricted">Restricted (limited access)</option>
           </select>
@@ -254,20 +256,20 @@ export function EditVaultModal({ vault, onClose, onSave }) {
         <div className="hc-modal-title">Edit Vault</div>
         <div className="hc-modal-sub">Update vault settings and information.</div>
         <div className="hc-form-group">
-          <label className="hc-label">Vault Name</label>
-          <input className="hc-input" value={name} onChange={(e) => setName(e.target.value)} />
+          <label className="hc-label" htmlFor="edit-vault-name">Vault Name</label>
+          <input id="edit-vault-name" className="hc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Emoji</label>
-          <input className="hc-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={2} />
+          <label className="hc-label" htmlFor="edit-vault-emoji">Emoji</label>
+          <input id="edit-vault-emoji" className="hc-input" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={2} />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Description</label>
-          <textarea className="hc-input hc-textarea" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <label className="hc-label" htmlFor="edit-vault-description">Description</label>
+          <textarea id="edit-vault-description" className="hc-input hc-textarea" value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
         <div className="hc-form-group">
-          <label className="hc-label">Access Level</label>
-          <select className="hc-input" value={accessLevel} onChange={(e) => setAccessLevel(e.target.value)}>
+          <label className="hc-label" htmlFor="edit-vault-access-level">Access Level</label>
+          <select id="edit-vault-access-level" className="hc-input" value={accessLevel} onChange={(e) => setAccessLevel(e.target.value)}>
             <option value="family">Family (visible to all)</option>
             <option value="restricted">Restricted (limited access)</option>
           </select>
