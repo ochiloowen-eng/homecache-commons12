@@ -10,7 +10,7 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: APP_BASE_URL
-        value: https://your-frontend-domain.vercel.app
+        value: https://homecache-commons12-77de.vercel.app
       - key: DB_PATH
         value: /var/data/homecache.db
       - key: UPLOADS_DIR
